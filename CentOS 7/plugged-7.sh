@@ -173,7 +173,13 @@ yukle()
 	hwclock -w
 	/bin/date
 
-	yum install -y httpd mysql-server phpmyadmin vsftpd php-gd php
+	# CentOS 7 doesn't ship with MySQL so we add the mysql-community repo
+	yum install -y http://dev.mysql.com/get/mysql-community-release-el7-5.noarch.rpm
+
+	# CentOS 7 doesn't ship with phpMyAdmin either, so we add the EPEL repo
+	yum install -y epel-release
+
+	yum install -y httpd mysql-community-server phpmyadmin vsftpd php-gd php
 }
 
 setRootPass()
