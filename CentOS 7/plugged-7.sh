@@ -105,7 +105,7 @@ yukle()
 {
 	arch=`uname -i`
 	echo "Detected architecture is $arch"
-	RELEASE=`awk '{ print $3 }' < /etc/redhat-release`
+	RELEASE=`awk '{ print $4 }' < /etc/redhat-release`
 	MAJOR=`echo $RELEASE | awk -F. '{ print $1 }'`
 	MINOR=`echo $RELEASE | awk -F. '{ print $2 }'`
 	echo "Detected CentOS Release: $RELEASE, Major=$MAJOR, Minor=$MINOR"
