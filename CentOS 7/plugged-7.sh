@@ -285,8 +285,7 @@ NameVirtualHost $IP:80
 </VirtualHost>
 EOF
 
-sed -i 's/  Allow from.*/  Allow from all/' /etc/httpd/conf.d/phpmyadmin.conf
-sed -i "s/.*blowfish_secret.*/\$cfg[\'blowfish_secret\'] = \'$RANDOM\';/" /usr/share/phpmyadmin/config.inc.php
+sed -i 's/  Allow from.*/  Allow from all/' /etc/httpd/conf.d/phpMyAdmin.conf
 
 chkconfig httpd on
 chkconfig mysqld on
