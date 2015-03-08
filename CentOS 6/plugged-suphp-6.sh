@@ -2,9 +2,9 @@
 ###############################################################################
 #     Copyright Plugged.in 2014 All rights reserved
 ###############################################################################
-# This scirpt installs everything needed to run a web server and
+# This scirpt installs everything needed to run a web server and 
 # updates, installs & configures various options of a clearly installed system
-#
+# 
 #
 # Version 0.3
 # USE AT YOUR OWN RISK!!!
@@ -22,7 +22,7 @@
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 
-repoVer="0.5.2-2"
+repoVer="0.5.3-1"
 BASEDIR=/home
 USRSHELL=/bin/bash
 
@@ -61,7 +61,7 @@ Usage(){
     echo " -u username : Set the LOGIN name"
     echo " -p password : Set the Password"
     echo ""
-    exit 1
+    exit 1 
 }
 
 # parse arguments
@@ -110,8 +110,8 @@ yukle()
 	MAJOR=`echo $RELEASE | awk -F. '{ print $1 }'`
 	MINOR=`echo $RELEASE | awk -F. '{ print $2 }'`
 	echo "Detected CentOS Release: $RELEASE, Major=$MAJOR, Minor=$MINOR"
-
-
+	
+	
 	repoFileName="/etc/yum.repos.d/CentOS-Base.repo"
 	if [ ! -r $repoFileName -o ! -w $repoFileName ]; then
 	 echo "Repository file $repoFileName is not readable or writtable!"
@@ -126,19 +126,19 @@ yukle()
 	else
 	 echo "Priorities for base packages already set!"
 	fi
-
+	 
 	echo "Loading RPMForge RPM..."
 	wget "http://apt.sw.be/redhat/el$MAJOR/en/$arch/rpmforge/RPMS/rpmforge-release-$repoVer.el$MAJOR.rf.$arch.rpm" || exit_with_message "RPMForge RPM download failed!"
-
+	 
 	echo "Importing RPM Forge GPG key..."
 	rpm --import http://dag.wieers.com/rpm/packages/RPM-GPG-KEY.dag.txt || exit_with_message "RPMForge GPG key download failed!"
-
+	 
 	echo "Verifying RPMForge RPM..."
 	rpm -K rpmforge-release-$repoVer.el$MAJOR.rf.*.rpm || exit_with_message "RPMForge GPG key verification failed!"
-
+	 
 	echo "Installing RPMForge RPM..."
 	rpm -Uvh rpmforge-release-$repoVer.el$MAJOR.rf.*.rpm || exit_with_message "RPMForge RPM installation failed!"
-
+	 
 	echo "Editing RPMForge repo file..."
 	repoFileName="/etc/yum.repos.d/rpmforge.repo"
 	if [ ! -r $repoFileName -o ! -w $repoFileName ]; then
@@ -153,31 +153,31 @@ yukle()
 	fi
 	rm -f rpmforge-release-$repo_ver.el$MAJOR.rf.$arch.rpm
 	echo "Done!"
-
-
-
+	
+	
+	
 	# Disable IPv6.
 	echo "alias net-pf-10 off" >> /etc/modprobe.conf
 	echo "alias ipv6 off" >> /etc/modprobe.conf
-
+	
 	# Disable SElinux.
 	sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/sysconfig/selinux
 	/usr/sbin/setenforce 0
-
+	
 	yum -y install yum-fastestmirror wget
-
-
+	
+	
 	# Set system time.
 	yum install ntp -y
 	\cp -f /usr/share/zoneinfo/Europe/Istanbul /etc/localtime
-	/usr/sbin/ntpdate -v -b in.pool.ntp.org
+	/usr/sbin/ntpdate -v -b in.pool.ntp.org 
 	hwclock -w
 	/bin/date
-
+	
 	yum install -y httpd mysql-server phpmyadmin vsftpd php-gd php
 }
 
-setRootPass()
+setRootPass() 
 {
 	/usr/bin/mysqladmin --user=root password $1 1> /dev/null 2> /dev/null
 	echo "UPDATE mysql.user SET password=PASSWORD('${1}') WHERE user='root';"> mysql.temp;
@@ -203,8 +203,8 @@ createNewUser(){
 }
 
 if ( ! isUserExits $USER_NAME )
-    then
-        createNewUser -m -s $USRSHELL $USER_NAME
+    then 
+        createNewUser -m -s $USRSHELL $USER_NAME 
          echo $PASSWORD | /usr/bin/passwd --stdin $USER_NAME
          chmod 755 /home/$USER_NAME
     else
@@ -236,7 +236,7 @@ sed -i 's|x-httpd-php=php:/usr/bin/php|x-httpd-php="php:/usr/bin/php-cgi"|' /etc
 sed -i 's|x-suphp-cgi=execute:!self|x-suphp-cgi="execute:!self"|' /etc/suphp.conf
 
 #get IP
-IP=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}' | head -n 1`
+IP=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
 
 cat > "$CONF" <<EOF
 NameVirtualHost $IP:80
@@ -244,7 +244,7 @@ NameVirtualHost $IP:80
 <VirtualHost $IP:80>
         ServerAdmin root@$DOMAIN_NAME
         DocumentRoot /home/$USER_NAME/public_html/
-        ServerName $DOMAIN_NAME
+        ServerName $DOMAIN_NAME 
         ServerAlias *.$DOMAIN_NAME $IP
         ErrorLog /home/$USER_NAME/logs/error.log
         CustomLog /home/$USER_NAME/logs/$DOMAIN_NAME.log common
@@ -259,7 +259,7 @@ NameVirtualHost $IP:80
                 Order deny,allow
                 Allow from all
         </Directory>
-
+        
         <Directory "/home/$USER_NAME/public_html">
                 order deny,allow
                 allow from all
@@ -303,24 +303,3 @@ service mysqld restart
 service vsftpd start
 
 
-
-# INSTALLING WORDPRESS
-
-echo "Installing Wordpres..."
-
-cd /home/$USER_NAME/public_html
-
-wget http://wordpress.org/latest.tar.gz .
-tar -xvzf latest.tar.gz
-mv wordpress/* .
-rmdir wordpress
-rm -f latest.tar.gz
-
-mv wp-config-sample.php wp-config.php
-sed -i "s/^define('DB_NAME',.*/define('DB_NAME', '$USER_NAME');/" wp-config.php
-sed -i "s/^define('DB_USER',.*/define('DB_USER', '$USER_NAME');/" wp-config.php
-sed -i "s/^define('DB_PASSWORD',.*/define('DB_PASSWORD', '$PASSWORD');/" wp-config.php
-
-chown -R $USER_NAME:$USER_NAME /home/$USER_NAME/public_html
-
-echo "all done!"
