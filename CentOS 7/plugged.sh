@@ -228,14 +228,18 @@ firewall_list_services()
       :
       if [ $i == $j ]
       then
-      	color1="\e[92m"
+      	color1="\e[92m-> "
       	color2="\e[0m"
       fi
       done
 
       cnt1=$((21-${#val}))
       noktalar=$(printf '%0.s ' $(seq 1 $cnt1))
-      ((cnt%3==0)) && val1+="$color1 $val $color2\n"  || val1+="$color1 $val$color2$noktalar|"
+      if [ -z $color1 ]; then 
+      ((cnt%3==0)) && val1+="   $val \n"  || val1+="   $val$noktalar|"
+      else
+      ((cnt%3==0)) && val1+="$color1$val$color2\n"  || val1+="$color1$val$color2$noktalar|"
+      fi
     done
     IFS='%'
 	echo -e $val1
@@ -247,27 +251,14 @@ firewall_list_ports()
 	val1=""
 	ACTIVE_SERVICES=`firewall-cmd --zone=public --list-ports`
 	cnt=0
-	# burada kaldim
-	for i in $AVAILABLE_SERVICES
+	for i in $ACTIVE_SERVICES
     do
       :
       val="$i "
-      color1=""
-      color2=""
       (( cnt++ ))
-      for j in $ACTIVE_SERVICES
-      do
-      :
-      if [ $i == $j ]
-      then
-      	color1="\e[92m"
-      	color2="\e[0m"
-      fi
-      done
-
       cnt1=$((21-${#val}))
       noktalar=$(printf '%0.s ' $(seq 1 $cnt1))
-      ((cnt%3==0)) && val1+="$color1 $val $color2\n"  || val1+="$color1 $val$color2$noktalar|"
+      ((cnt%3==0)) && val1+=" $val \n"  || val1+=" $val$noktalar|"
     done
     IFS='%'
 	echo -e $val1
@@ -301,6 +292,22 @@ toggle_service()
 	RES=`firewall-cmd --reload &> /dev/null`
 }
 
+toggle_port()
+{
+	echo -e "\e[92m PLEASE WAIT \e[0m"
+	
+	ACTIVE_SERVICES=`firewall-cmd --zone=public --list-ports`
+	Found=0
+	for i in $ACTIVE_SERVICES
+	do
+		if [ "$i" == "$1" ] ; then
+	    	Found=1
+    fi
+	done
+	(($Found)) && RES=`firewall-cmd --zone=public --permanent --remove-port=$1 &> /dev/null` || RES=`firewall-cmd --zone=public --permanent --add-port=$1 &> /dev/null`
+	RES=`firewall-cmd --reload &> /dev/null`
+}
+
 firewall_menu_AddService( )
 {
 	LASTMENU="firewall_menu_AddService"
@@ -309,23 +316,23 @@ firewall_menu_AddService( )
 	echo "		>>::HOME::Firewall::Add/Remove Service										 	       "
 	echo "																									 "
 	echo "																									 "
-	echo "----------------------|----------------------|------------------------"
+	echo "------------------------|------------------------|--------------------"
 	echo " Services: "
-	echo "----------------------|----------------------|------------------------"
+	echo "------------------------|------------------------|--------------------"
 	echo "$(firewall_list_services)"
-	echo "----------------------|----------------------|------------------------"
+	echo "------------------------|------------------------|--------------------"
 	echo "																									 "
 	echo " _____ ___ ___ _ _ "
 	echo "|     | -_|   | | |"
 	echo "|_|_|_|___|_|_|___|"
 	echo "                  				"
 	echo "---------------------------------|------------------------------------"
-	echo -e "	LEGEND: \e[92m| ENABLED SERVICE |\e[0m"
+	echo -e "	LEGEND: \e[92m-> ENABLED SERVICE \e[0m"
 	echo "	Type q to Exit x to Go Back							 "
 #	echo "	Type Service name to toggle (be carefull, enter will apply the rule):"
 
 
-	read -p "	Type Service name to toggle (be carefull):" Command
+	read -p "	Type Service name to toggle (be carefull, ENTER will toogle the rule):" Command
 	case $Command in
 	x)
 		firewall_menu
@@ -348,7 +355,7 @@ firewall_menu_AddPort( )
 	echo "																									 "
 	echo "																									 "
 	echo "----------------------|----------------------|------------------------"
-	echo " Ports: "
+	echo " Ports:                                                               "
 	echo "----------------------|----------------------|------------------------"
 	echo "$(firewall_list_ports)"
 	echo "----------------------|----------------------|------------------------"
@@ -358,12 +365,11 @@ firewall_menu_AddPort( )
 	echo "|_|_|_|___|_|_|___|"
 	echo "                  				"
 	echo "---------------------------------|------------------------------------"
-	echo -e "	LEGEND: \e[92m| ENABLED SERVICE |\e[0m"
-	echo "	Type q to Exit x to Go Back							 "
-#	echo "	Type Service name to toggle (be carefull, enter will apply the rule):"
+	echo "	Type q to Exit, x to Go Back to previous Menu							 "
+	echo "	Examples: 8800-8080/udp or 81/tcp"
 
 
-	read -p "	Type Service name to toggle (be carefull):" Command
+	read -p "	Type Port number and protocol to toggle (eg: 8080/tcp):" Command
 	case $Command in
 	x)
 		firewall_menu
@@ -372,7 +378,7 @@ firewall_menu_AddPort( )
 		exit 1
 		;;
 	*)
-		toggle_service $Command
+		toggle_port $Command
 		;;
 	esac
 }
