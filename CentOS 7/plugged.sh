@@ -1,6 +1,6 @@
 #!/bin/bash
 ###############################################################################
-#     Copyright Plugged.in 2012 All rights reserved
+#     Copyright Plugged.in 2012-2015 All rights reserved
 ###############################################################################
 # This scirpt installs everything needed to run a web server and 
 # updates, installs & configures various options of a clearly installed system
@@ -13,9 +13,8 @@
 # chmod 755 plugged.sh
 #
 # after this has been done, you can type ./plugged.sh to run the script.
-#
-# ex: plugged.sh -u example -p password -d example.com
-#
+#     
+# 
 ###############################################################################
 
 #cnt1=55
