@@ -85,7 +85,7 @@ main_menu ( )
 	echo "                  				"
 	echo "-------------------------------|--------------------------------------"
 	echo "                               |										 "
-	echo "1-Firewall                     | 2-Add Domain							 "
+	echo "1-Firewall                     | 2-SELinux							 "
 	echo "                               |										 "
 	echo "----------------------------------------------------------------------"
 	read -n 1 -p "Type q to Exit, x to Go Back:" Command
