@@ -14,13 +14,21 @@ declare -a SERVICES=(
 "vsftpd"
 )
 
+php_check(){
+    rpm -qa | grep php > /dev/null
+    phpstat=$?
+    if [[ $phpstat == 0 ]]; then
+        PHPVER=$(php -v | head -n 1 | cut -d " " -f 2 | cut -c 1,3)
+    fi
+}
 
-intexit() {
+
+intexit(){
     # Allows clean exit via Ctrl-C
     kill -HUP -$$
 }
 
-hupexit() {
+hupexit(){
     # Allows clean exit via Ctrl-C
     echo
     echo "Interrupted"
@@ -129,7 +137,9 @@ prepare(){
     yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm
     yum install -y yum-utils
     yum-config-manager --enable remi-php${PHPVER}
-    yum-config-manager --enable remi
+    if [[ $PHPVER != "54" ]]; then
+        yum-config-manager --enable remi
+    fi
     #yum upgrade -y
     yum install -y ntp git vim-enhanced rsync net-tools vsftpd httpd mariadb-server
     yum install -y php php-mcrypt php-cli php-gd php-curl php-mysql php-ldap php-zip php-fileinfo phpmyadmin
@@ -238,13 +248,20 @@ httpd_set(){
 </VirtualHost>
 EOF
     sed -i "s/#ServerName www.example.com:80/ServerName ${IP}:80/g" /etc/httpd/conf/httpd.conf
+    if [[ $PHPVER == "54" ]]; then
+        sed -i "s/php_admin_value open_basedir/#php_admin_value open_basedir" $CONF
+    fi
 }
 
 phpmyadmin_set(){
-
     SECRET=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
     sed -i "s/.*blowfish_secret.*/\$cfg[\'blowfish_secret\'] = \'${SECRET}\';/" /etc/phpMyAdmin/config.inc.php
-    sed -i "s/Require local/Require all granted/g" /etc/httpd/conf.d/phpMyAdmin.conf
+    if [[ $PHPVER == "54" ]]; then
+        sed -i "s/Require ip 127.0.0.1/Require all granted/g" /etc/httpd/conf.d/phpMyAdmin.conf
+        sed -i "s/Require ip ::1/#Require ip ::1/g" /etc/httpd/conf.d/phpMyAdmin.conf
+    else
+        sed -i "s/Require local/Require all granted/g" /etc/httpd/conf.d/phpMyAdmin.conf
+    fi
 }
 
 add_user(){
@@ -312,9 +329,16 @@ services_reset(){
     done
 }
 
+user_check(){
+    USER=$1
+    grep $USER /etc/passwd > /dev/null
+    [ $? -eq 0 ] && return $TRUE || return $FALSE
+}
+
 var_get(){
     TYPE=$1
-    if [[ $TYPE == "fresh" ]]; then
+    php_check
+    if [[ $TYPE == "fresh" ]] && [[ -z $PHPVER ]]; then
         echo "Choose PHP version:"
         select choices in "7.2" "7.1" "7.0" "5.4"; do
             case $choices in
@@ -342,6 +366,18 @@ var_get(){
             var_get $TYPE
         fi
 
+    elif [[ $TYPE == "fresh" ]]; then
+        phpver_pretty=$(php -v | grep cli | awk '{print $2}')
+        echo "PHP version ${phpver_pretty} detected."
+        sleep 0.2
+        read -p "MySQL Root Password: " PASSWORD
+        if [[ -z $PASSWORD ]]; then
+            echo "Set proper values."
+            var_get $TYPE
+        fi
+    elif [[ $TYPE == "addition" ]] && [[ -z $PHPVER ]]; then
+        echo "No PHP detected. Run fresh installation first."
+        menu
     elif [[ $TYPE == "addition" ]]; then
         sleep 0.2
         read -p "Domain: " DOMAIN_NAME
@@ -355,6 +391,10 @@ var_get(){
             USER_NAME=$(echo $DOMAIN_NAME | awk -F'.' '{print $2}')
             DOMAIN_NAME=$(echo $DOMAIN_NAME | cut -d'.' -f 2-)
         fi
+        if  user_check $USER_NAME; then
+            echo "This user exists."
+            var_get $TYPE
+        fi
     fi
 }
 
@@ -363,11 +403,11 @@ fresh(){
     var_get fresh
     title "Installing..."
     vt_key_add
-    prepare
     firewalld_set
     selinux_set
     ipv6_set
     ntp_set
+    prepare
     phpmyadmin_set
     mycnf_set
     mysql_set_root
