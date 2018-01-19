@@ -249,7 +249,7 @@ httpd_set(){
 EOF
     sed -i "s/#ServerName www.example.com:80/ServerName ${IP}:80/g" /etc/httpd/conf/httpd.conf
     if [[ $PHPVER == "54" ]]; then
-        sed -i "s/php_admin_value open_basedir/#php_admin_value open_basedir" $CONF
+        sed -i "s/php_admin_value open_basedir/#php_admin_value open_basedir/g" $CONF
     fi
 }
 
