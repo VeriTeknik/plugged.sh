@@ -1,11 +1,32 @@
 #!/bin/bash
 
 # GLOBALS
+FILEVER="0.5"
 DOMAIN_NAME=
 USER_NAME=
 PASSWORD=
 PWD="$(dirname "$(realpath "$0")")"
 LOGFILE="${PWD}/plugged.log"
+PHPVER=
+declare -a SERVICES=(
+"httpd"
+"mariadb"
+"vsftpd"
+)
+
+
+intexit() {
+    # Allows clean exit via Ctrl-C
+    kill -HUP -$$
+}
+
+hupexit() {
+    # Allows clean exit via Ctrl-C
+    echo
+    echo "Interrupted"
+    echo
+    exit
+}
 
 repeat(){
     # Repeats a string $num times.
@@ -82,6 +103,7 @@ title(){
     printf $CORNER
     printf '\n'
     echo
+    sleep 0.2
 }
 
 root_check(){
@@ -93,7 +115,7 @@ root_check(){
 
 banner(){
     echo "========================================================================="
-    echo "Plugged V0.1 for CentOS/RadHat Linux 7"
+    echo "Plugged V${FILEVER} for CentOS/RadHat Linux 7"
     echo "========================================================================="
     echo "A tool to auto-compile & install MySQL+PHP on Linux "
     echo ""
@@ -101,59 +123,12 @@ banner(){
     echo "========================================================================="
 }
 
-usage(){
-    echo "Usage: $0 -u username -p password -d domain"
-    echo ""
-    echo " -u username : Set the LOGIN name"
-    echo " -p password : Set the Password"
-    echo " -d domain   : Set the Domain"
-    echo ""
-    exit 1
-}
-
-argparse(){
-    # call with $@ to pass arguements
-
-    if [ $# -lt 3 ]; then
-            usage
-        exit -1
-    fi
-
-    while [ -n "$1" ] ; do
-                case $1 in
-                -d | --domain )
-                        shift
-                        export DOMAIN_NAME=$1
-                        ;;
-                -u | --user* )
-                        shift
-                        export USER_NAME=$1
-                        ;;
-                -p | --pass* )
-                        shift
-                        export PASSWORD=$1
-                        ;;
-                -h | --help )
-                        usage
-                        exit 0
-                        ;;
-                * )
-                        echo "ERROR: Unknown option: $1"
-                        echo
-                        Usage
-                        exit -1
-                        ;;
-                esac
-                shift
-    done
-}
-
 prepare(){
     echo "Installing required packages..."
     yum install -y epel-release
     yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm
     yum install -y yum-utils
-    yum-config-manager --enable remi-php72
+    yum-config-manager --enable remi-php${PHPVER}
     yum-config-manager --enable remi
     #yum upgrade -y
     yum install -y ntp git vim-enhanced rsync net-tools vsftpd httpd mariadb-server
@@ -266,7 +241,7 @@ EOF
 }
 
 phpmyadmin_set(){
-        
+
     SECRET=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
     sed -i "s/.*blowfish_secret.*/\$cfg[\'blowfish_secret\'] = \'${SECRET}\';/" /etc/phpMyAdmin/config.inc.php
     sed -i "s/Require local/Require all granted/g" /etc/httpd/conf.d/phpMyAdmin.conf
@@ -307,7 +282,7 @@ mysql_set_user(){
 	echo "CREATE DATABASE ${USER_NAME};"> mysql.temp;
 	echo "GRANT ALL PRIVILEGES ON ${USER_NAME}.* TO '${USER_NAME}'@'localhost' IDENTIFIED BY '${PASSWORD}';">> mysql.temp;
 	echo "FLUSH PRIVILEGES;" >> mysql.temp;
-	mysql --user=root --password=${PASSWORD} < mysql.temp;
+	mysql --user=root < mysql.temp;
 	rm -f mysql.temp;
     systemctl stop mariadb
 }
@@ -325,39 +300,113 @@ ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCkswr4ZJirF4Q02nwDEsUG04g3Acq5v/rMTtbXRfSf
 }
 
 services_set(){
-    declare -a services=(
-    "httpd"
-    "mariadb"
-    "vsftpd"
-    )
-
-    for service in "${services[@]}"; do
+    for service in "${SERVICES[@]}"; do
         systemctl start $service
         systemctl enable $service
     done
 }
 
-main(){
-    title "plugged.sh v0.1"
-    echo
-    banner
-    echo
-    root_check
-    argparse $@
+services_reset(){
+    for service in "${SERVICES[@]}"; do
+        systemctl restart $service
+    done
+}
+
+var_get(){
+    TYPE=$1
+    if [[ $TYPE == "fresh" ]]; then
+        echo "Choose PHP version:"
+        select choices in "7.2" "7.1" "7.0" "5.4"; do
+            case $choices in
+                "7.2" )
+                    PHPVER="72"
+                    break
+                    ;;
+                "7.1" )
+                    PHPVER="71"
+                    break
+                    ;;
+                "7.0" )
+                    PHPVER="70"
+                    break
+                    ;;
+                "5.4" )
+                    PHPVER="54"
+                    break
+                    ;;
+            esac
+        done
+        read -p "MySQL Root Password: " PASSWORD
+    elif [[ $TYPE == "addition" ]]; then
+        read -p "Domain: " DOMAIN_NAME
+        read -p "Password: " PASSWORD
+        USER_NAME=$(echo $DOMAIN_NAME | awk -F'.' '{print $1}')
+        if [[ $USER_NAME == "www" ]]; then
+            USER_NAME=$(echo $DOMAIN_NAME | awk -F'.' '{print $2}')
+        fi
+    fi
+}
+
+fresh(){
+    title "Fresh Installation Starting..."
+    var_get fresh
+    title "Installing..."
     vt_key_add
     prepare
     firewalld_set
     selinux_set
     ipv6_set
     ntp_set
-    add_user
-    httpd_set
     phpmyadmin_set
     mycnf_set
     mysql_set_root
-    mysql_set_user
     services_set
-    title "All done. Please reboot."
+    title "Completed."
 }
 
-main $@ | tee $LOGFILE
+addition(){
+    title "Domain Setup Starting..."
+    var_get addition
+    title "Configuring..."
+    add_user
+    httpd_set
+    mysql_set_user
+    services_reset
+    title "Completed."
+}
+
+menu(){
+    root_check
+    title "plugged.sh v${FILEVER}"
+    banner
+    echo
+    title "Menu"
+    echo
+    select choices in "Fresh Installation" "Add Domain/User/Database" "Quit"; do
+        case $choices in
+            "Fresh Installation" )
+                fresh
+                menu
+                break
+                ;;
+
+            "Add Domain/User/Database" )
+                addition
+                menu
+                break
+                ;;
+
+            "Quit" )
+                title "Goodbye!"
+                exit 0
+                break
+                ;;
+        esac
+    done
+}
+
+main(){
+    menu
+}
+
+main | tee $LOGFILE
