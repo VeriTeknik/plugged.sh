@@ -337,9 +337,19 @@ var_get(){
             esac
         done
         read -p "MySQL Root Password: " PASSWORD
+        if [[ -z $PASSWORD ]]; then
+            echo "Set proper values."
+            var_get $TYPE
+        fi
+
     elif [[ $TYPE == "addition" ]]; then
+        sleep 0.2
         read -p "Domain: " DOMAIN_NAME
         read -p "Password: " PASSWORD
+        if [[ -z $DOMAIN_NAME ]] || [[ -z $PASSWORD ]]; then
+            echo -e "Set proper values."
+            var_get $TYPE
+        fi
         USER_NAME=$(echo $DOMAIN_NAME | awk -F'.' '{print $1}')
         if [[ $USER_NAME == "www" ]]; then
             USER_NAME=$(echo $DOMAIN_NAME | awk -F'.' '{print $2}')
