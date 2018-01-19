@@ -343,6 +343,7 @@ var_get(){
         USER_NAME=$(echo $DOMAIN_NAME | awk -F'.' '{print $1}')
         if [[ $USER_NAME == "www" ]]; then
             USER_NAME=$(echo $DOMAIN_NAME | awk -F'.' '{print $2}')
+            DOMAIN_NAME=$(echo $DOMAIN_NAME | cut -d'.' -f 2-)
         fi
     fi
 }
