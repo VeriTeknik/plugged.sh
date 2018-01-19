@@ -238,7 +238,7 @@ httpd_set(){
                 order deny,allow
                 allow from all
                 Options FollowSymLinks
-				AllowOverRide All
+				AllowOverride All
                 SetOutputFilter DEFLATE
 
                 AddOutputFilterByType DEFLATE text/plain
@@ -257,17 +257,19 @@ httpd_set(){
                 </Directory>
         SuexecUserGroup $USER_NAME $USER_NAME
 
-        php_admin_value open_basedir /home/$USER_NAME:/tmp:/usr/lib64/php/modules:/usr/share/phpMyAdmin/
+        php_admin_value open_basedir /home/$USER_NAME:/tmp:/usr/lib64/php/modules:/usr/share/phpMyAdmin/:/usr/share/php
         php_admin_value error_log  /home/$USER_NAME/logs/php_error.log
 
 </VirtualHost>
 EOF
-    # For phpMyAdmin
+    sed -i "s/#ServerName www.example.com:80/ServerName ${IP}:80/g" /etc/httpd/conf/httpd.conf
+}
 
+phpmyadmin_set(){
+        
     SECRET=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
     sed -i "s/.*blowfish_secret.*/\$cfg[\'blowfish_secret\'] = \'${SECRET}\';/" /etc/phpMyAdmin/config.inc.php
     sed -i "s/Require local/Require all granted/g" /etc/httpd/conf.d/phpMyAdmin.conf
-    sed -i "s/ServerName www.example.com:80/ServerName ${IP}:80/g" /etc/httpd/conf/httpd.conf
 }
 
 add_user(){
@@ -349,7 +351,8 @@ main(){
     ipv6_set
     ntp_set
     add_user
-    #httpd_set
+    httpd_set
+    phpmyadmin_set
     mycnf_set
     mysql_set_root
     mysql_set_user
