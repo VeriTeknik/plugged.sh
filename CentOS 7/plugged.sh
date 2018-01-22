@@ -272,7 +272,7 @@ add_user(){
     echo "<?php phpInfo(); ?>" > /home/$USER_NAME/public_html/index.php
     mkdir /home/$USER_NAME/logs
     touch /home/$USER_NAME/logs/{php_error.log,error.log,$DOMAIN_NAME.log}
-    chown -R $USER_NAME: /home/$USER_NAME/public_html
+    chown -R $USER_NAME: /home/$USER_NAME
     chown apache: /home/$USER_NAME/logs/php_error.log
 }
 
