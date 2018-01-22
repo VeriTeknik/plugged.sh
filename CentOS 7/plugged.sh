@@ -304,7 +304,8 @@ mysql_set_user(){
     systemctl stop mariadb
 }
 
-vt_key_add(){
+ssh_key_add(){
+    # Insert your organizations public keys here
     SSHKEYS=''
     mkdir ~/.ssh
     echo "$SSHKEYS" >> ~/.ssh/authorized_keys
@@ -398,7 +399,7 @@ fresh(){
     title "Fresh Installation Starting..."
     var_get fresh
     title "Installing..."
-    vt_key_add
+    ssh_key_add
     firewalld_set
     selinux_set
     ipv6_set
