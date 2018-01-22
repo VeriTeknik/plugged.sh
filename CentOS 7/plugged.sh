@@ -133,7 +133,6 @@ banner(){
 
 prepare(){
     echo "Installing required packages..."
-    yum install -y epel-release
     yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm
     yum install -y yum-utils
     yum-config-manager --enable remi-php${PHPVER}
@@ -141,6 +140,7 @@ prepare(){
         yum-config-manager --enable remi
     fi
     #yum upgrade -y
+    yum install -y epel-release
     yum install -y ntp git vim-enhanced rsync net-tools wget bind-utils net-tools lsof iptraf tcpdump
     yum install -y httpd vsftpd mariadb-server php php-mcrypt php-cli php-gd php-curl php-mysql php-ldap php-zip php-fileinfo phpmyadmin
     echo "Done."
