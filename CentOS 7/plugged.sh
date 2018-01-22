@@ -141,8 +141,8 @@ prepare(){
         yum-config-manager --enable remi
     fi
     #yum upgrade -y
-    yum install -y ntp git vim-enhanced rsync net-tools vsftpd httpd mariadb-server
-    yum install -y php php-mcrypt php-cli php-gd php-curl php-mysql php-ldap php-zip php-fileinfo phpmyadmin
+    yum install -y ntp git vim-enhanced rsync net-tools wget bind-utils net-tools lsof iptraf tcpdump
+    yum install -y httpd vsftpd mariadb-server php php-mcrypt php-cli php-gd php-curl php-mysql php-ldap php-zip php-fileinfo phpmyadmin
     echo "Done."
 }
 
