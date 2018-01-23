@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # GLOBALS
-FILEVER="0.9"
+FILEVER="1.5"
 DOMAIN_NAME=
 USER_NAME=
 PASSWORD=
@@ -15,13 +15,16 @@ declare -a SERVICES=(
 )
 
 php_check(){
-    rpm -qa | grep php > /dev/null
-    phpstat=$?
-    if [[ $phpstat == 0 ]]; then
+    if ins_check php; then
         PHPVER=$(php -v | head -n 1 | cut -d " " -f 2 | cut -c 1,3)
     fi
 }
 
+ins_check(){
+    INPUT=$1
+    rpm -qa | grep "$INPUT" > /dev/null
+    return $?
+}
 
 intexit(){
     # Allows clean exit via Ctrl-C
@@ -131,6 +134,12 @@ banner(){
     echo "========================================================================="
 }
 
+ranger_set(){
+    git clone https://github.com/ranger/ranger.git /tmp/ranger
+    (cd /tmp/ranger && make install && cd && ranger --copy-config=all && sed -i "s/set colorscheme default/set colorscheme solarized/g" ~/.config/ranger/rc.conf && sed -i "s/draw_borders false/draw_borders true/g" ~/.config/ranger/rc.conf)
+    rm -rf /tmp/ranger
+}
+
 prepare(){
     echo "Installing required packages..."
     yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm
@@ -141,8 +150,9 @@ prepare(){
     fi
     #yum upgrade -y
     yum install -y epel-release
-    yum install -y ntp git vim-enhanced rsync net-tools wget bind-utils net-tools lsof iptraf tcpdump
+    yum install -y ntp git vim-enhanced rsync net-tools wget bind-utils net-tools lsof iptraf tcpdump apachetop
     yum install -y httpd vsftpd mariadb-server php php-mcrypt php-cli php-gd php-curl php-mysql php-ldap php-zip php-fileinfo phpmyadmin
+    ranger_set
     echo "Done."
 }
 
@@ -192,6 +202,113 @@ ipv6_set(){
     sysctl -p
     systemctl restart network
     echo "Done."
+}
+
+nginx_set(){
+    if ins_check nginx; then
+        echo "nginx is installed"
+        nginx -v
+    else
+        echo "Installing nginx..."
+        yum install -y nginx python-pip
+        pip install ngxtop
+        echo "Done."
+    fi
+    cat > /etc/nginx/nginx.conf <<EOF
+# For more information on configuration, see:
+#   * Official English Documentation: http://nginx.org/en/docs/
+#   * Official Russian Documentation: http://nginx.org/ru/docs/
+
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+
+# Load dynamic modules. See /usr/share/nginx/README.dynamic.
+include /usr/share/nginx/modules/*.conf;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+                      '\$status \$body_bytes_sent "\$http_referer" '
+                      '"\$http_user_agent" "\$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile            on;
+    tcp_nopush          on;
+    tcp_nodelay         on;
+    keepalive_timeout   65;
+    types_hash_max_size 2048;
+
+    include             /etc/nginx/mime.types;
+    default_type        application/octet-stream;
+
+    # Load modular configuration files from the /etc/nginx/conf.d directory.
+    # See http://nginx.org/en/docs/ngx_core_module.html#include
+    # for more information.
+    include /etc/nginx/conf.d/*.conf;
+}
+EOF
+    htstat="1"
+    for conf in /etc/httpd/conf.d/z_*; do
+        [ -e "$conf" ] && htstat="0"
+        break
+    done
+    if [[ $htstat == 0 ]]; then
+        files=$(find /etc/httpd/conf.d/ -name 'z_*')
+        for file in "${files[@]}"; do
+            sed -i "s/^<VirtualHost .*/<VirtualHost 127.0.0.1:8080>/g" $file
+        done
+        nginx_make_config
+    fi
+    sed -i "s/^Listen .*/Listen 127.0.0.1:8080/g" /etc/httpd/conf/httpd.conf
+    sed -i "s/^ServerName .*/ServerName 127.0.0.1:8080/g" /etc/httpd/conf/httpd.conf
+    service_status=$(systemctl is-active nginx)
+    if [[ $service_status != "active" ]]; then
+        systemctl start nginx
+    else
+        systemctl restart nginx
+    fi
+}
+
+nginx_check_config(){
+    for conf in /etc/nginx/conf.d/z_*; do
+        [ -e "$conf" ] && return 0 || return 1
+        break
+    done
+}
+
+nginx_make_config(){
+    files=($(ls /etc/httpd/conf.d | grep "^z_"))
+
+    for file in "${files[@]}"; do
+        if [[ ! -f "/etc/nginx/conf.d/${file}" ]]; then
+            touch /etc/nginx/conf.d/${file}
+            nginx_domain=$(grep 'ServerName' /etc/httpd/conf.d/${file} | awk '{print $2}')
+            cat > "/etc/nginx/conf.d/${file}" <<EOF
+server {
+    listen       80;
+    server_name $DOMAIN_NAME;
+    location / {
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$remote_addr;
+        proxy_set_header Host \$host;
+        proxy_pass http://127.0.0.1:8080;
+    }
+    error_page 404 /404.html;
+    location = /40x.html {
+    }
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+    }
+}
+EOF
+        fi
+    done
 }
 
 httpd_set(){
@@ -251,6 +368,10 @@ EOF
     if [[ $PHPVER == "54" ]]; then
         sed -i "s/php_admin_value open_basedir/#php_admin_value open_basedir/g" $CONF
     fi
+    if ins_check nginx; then
+        sed -i "s/^<VirtualHost .*/<VirtualHost 127.0.0.1:8080>/g" $CONF
+        nginx_make_config
+    fi
 }
 
 phpmyadmin_set(){
@@ -307,7 +428,9 @@ mysql_set_user(){
 ssh_key_add(){
     # Insert your organizations public keys here
     SSHKEYS=''
-    mkdir ~/.ssh
+    if [[ ! -d "/root/.ssh" ]]; then
+        mkdir ~/.ssh
+    fi
     echo "$SSHKEYS" >> ~/.ssh/authorized_keys
     chmod 700 ~/.ssh
     chmod 600 ~/.ssh/authorized_keys
@@ -324,6 +447,9 @@ services_reset(){
     for service in "${SERVICES[@]}"; do
         systemctl restart $service
     done
+    if ins_check nginx; then
+        systemctl restart nginx
+    fi
 }
 
 user_check(){
@@ -395,8 +521,27 @@ var_get(){
     fi
 }
 
-fresh(){
-    title "Fresh Installation Starting..."
+convert_to_nginx(){
+    echo "Converting to apache+nginx..."
+    if [[ ! -d /etc/plugged ]]; then
+        mkdir /etc/plugged
+    fi
+    for folder in /etc/plugged/httpd_*; do
+        [ -e "$folder" ] && rm -rf $folder
+        break
+    done
+    rsync -avh --progress /etc/httpd /etc/plugged/httpd_pure
+    nginx_set
+    echo "Done."
+}
+
+convert_to_apache(){
+    echo "Converting to pure apache..."
+    echo "Done."
+}
+
+fresh_pa(){
+    title "Fresh Installation Starting [Pure Apache]..."
     var_get fresh
     title "Installing..."
     ssh_key_add
@@ -408,6 +553,24 @@ fresh(){
     phpmyadmin_set
     mycnf_set
     mysql_set_root
+    services_set
+    title "Completed."
+}
+
+fresh_an(){
+    title "Fresh Installation Starting [Apache+Nginx]..."
+    var_get fresh
+    title "Installing..."
+    ssh_key_add
+    firewalld_set
+    selinux_set
+    ipv6_set
+    ntp_set
+    prepare
+    phpmyadmin_set
+    mycnf_set
+    mysql_set_root
+    nginx_set
     services_set
     title "Completed."
 }
@@ -430,27 +593,87 @@ menu(){
     echo
     title "Menu"
     echo
-    select choices in "Fresh Installation" "Add Domain/User/Database" "Quit"; do
-        case $choices in
-            "Fresh Installation" )
-                fresh
+
+    declare -a OPTS=(
+    )
+    declare -A OPTS_FUNCS=(
+    ["Fresh Installation (Apache)"]="fresh_pa"
+    ["Fresh Installation (Apache+Nginx)"]="fresh_an"
+    ["Add Domain/User/Database"]="addition"
+    ["Switch to Apache+Nginx Reverse Proxy"]="to_nginx"
+    ["Switch to Apache Only"]="to_apache"
+    ["Quit"]="bye"
+    )
+
+    if ins_check mysql && ins_check httpd && ins_check nginx; then
+        echo "Installed: apache+nginx & mysql"
+        echo
+        OPTS+=(
+        "Add Domain/User/Database"
+        "Switch to Apache Only"
+        )
+    elif ins_check mysql && ins_check httpd; then
+        echo "Installed: apache & mysql"
+        echo
+        OPTS+=(
+        "Add Domain/User/Database"
+        "Switch to Apache+Nginx Reverse Proxy"
+        )
+    else
+        OPTS+=(
+        "Fresh Installation (Apache)"
+        "Fresh Installation (Apache+Nginx)"
+        )
+    fi
+
+
+    OPTS+=("Quit")
+    sleep 0.2
+    select opt in "${OPTS[@]}"; do
+        case $opt in
+            "")
                 menu
                 break
                 ;;
-
-            "Add Domain/User/Database" )
-                addition
-                menu
-                break
-                ;;
-
-            "Quit" )
-                title "Goodbye!"
-                exit 0
+            *)
+                CALL="${OPTS_FUNCS[$opt]}"
                 break
                 ;;
         esac
     done
+
+    case $CALL in
+        fresh_pa )
+            fresh_pa
+            menu
+            break
+            ;;
+        fresh_an )
+            fresh_an
+            menu
+            break
+            ;;
+        addition )
+            addition
+            menu
+            break
+            ;;
+        to_nginx )
+            convert_to_nginx
+            menu
+            break
+            ;;
+        to_apache )
+            convert_to_apache
+            menu
+            break
+            ;;
+        bye )
+            title "Goodbye!"
+            exit 0
+            break
+            ;;
+    esac
 }
 
 main(){
