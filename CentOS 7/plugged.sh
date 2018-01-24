@@ -441,6 +441,9 @@ services_set(){
         systemctl start $service
         systemctl enable $service
     done
+    if ins_check nginx; then
+        systemctl start nginx
+    fi
 }
 
 services_reset(){
