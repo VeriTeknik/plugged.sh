@@ -556,7 +556,7 @@ fresh_pa(){
     phpmyadmin_set
     mycnf_set
     mysql_set_root
-    services_set
+    services_set	
     title "Completed."
 }
 
@@ -588,7 +588,26 @@ addition(){
     services_reset
     title "Completed."
 }
+addition_wordpress(){
+	addition
+	echo "Installing WordPress"
+	add_wordpress
+    title "Completed."
+}
 
+add_wordpress(){
+	cd /home/${USER_NAME}
+	wget https://wordpress.org/latest.tar.gz
+	tar -xzvf latest.tar.gz > /dev/null
+	mv wordpress/* /home/${USER_NAME}/public_html
+	rm -rf latest.tar.gz wordpress/
+	sed -i "s/database_name_here/$USER_NAME/g" ${PWD}/public_html/wp-config-sample.php
+	sed -i "s/username_here/$USER_NAME/g" ${PWD}/public_html/wp-config-sample.php
+	sed -i "s/password_here/$PASSWORD/g" ${PWD}/public_html/wp-config-sample.php 
+	mv public_html/wp-config-sample.php public_html/wp-config.php
+	chown -R ${USER_NAME}: /home/${USER_NAME}
+
+}
 menu(){
     root_check
     title "plugged.sh v${FILEVER}"
@@ -602,7 +621,8 @@ menu(){
     declare -A OPTS_FUNCS=(
     ["Fresh Installation (Apache)"]="fresh_pa"
     ["Fresh Installation (Apache+Nginx)"]="fresh_an"
-    ["Add Domain/User/Database"]="addition"
+    ["Add Domain/User/Database"]="addition" 
+	["Add Domain/User/Database with Wordpress"]="addition_wordpress"
     ["Switch to Apache+Nginx Reverse Proxy"]="to_nginx"
     ["Switch to Apache Only"]="to_apache"
     ["Quit"]="bye"
@@ -613,6 +633,7 @@ menu(){
         echo
         OPTS+=(
         "Add Domain/User/Database"
+		"Add Domain/User/Database with Wordpress"
         "Switch to Apache Only"
         )
     elif ins_check mysql && ins_check httpd; then
@@ -620,6 +641,7 @@ menu(){
         echo
         OPTS+=(
         "Add Domain/User/Database"
+		"Add Domain/User/Database with Wordpress"
         "Switch to Apache+Nginx Reverse Proxy"
         )
     else
@@ -658,6 +680,11 @@ menu(){
             ;;
         addition )
             addition
+            menu
+            break
+            ;;
+		addition_wordpress )
+            addition_wordpress
             menu
             break
             ;;
