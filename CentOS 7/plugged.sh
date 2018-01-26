@@ -157,6 +157,13 @@ prepare(){
 }
 
 ntp_set(){
+    if ins_check ntp; then
+        echo "NTP is installed."
+    else
+        echo "Installing NTP..."
+        yum install -y ntp
+        echo "Completed."
+    fi
     echo "Setting timezone to Turkey..."
     rm -rf /etc/localtime
     ln -s /usr/share/zoneinfo/Turkey /etc/localtime
