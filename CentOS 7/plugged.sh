@@ -145,7 +145,7 @@ prepare(){
     yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm
     yum install -y yum-utils
     yum-config-manager --enable remi-php${PHPVER}
-    if [[ $PHPVER != "54" ]]; then
+    if [[ $PHPVER != "54" ]] || [[ $PHPVER != "56" ]]; then
         yum-config-manager --enable remi
     fi
     #yum upgrade -y
@@ -372,7 +372,7 @@ httpd_set(){
 </VirtualHost>
 EOF
     sed -i "s/#ServerName www.example.com:80/ServerName ${IP}:80/g" /etc/httpd/conf/httpd.conf
-    if [[ $PHPVER == "54" ]]; then
+    if [[ $PHPVER == "54" ]] || [[ $PHPVER = "56" ]]; then
         sed -i "s/php_admin_value open_basedir/#php_admin_value open_basedir/g" $CONF
     fi
     if ins_check nginx; then
@@ -389,7 +389,7 @@ add_wordpress(){
 	rm -rf latest.tar.gz wordpress/
 	sed -i "s/database_name_here/$USER_NAME/g" ${PWD}/public_html/wp-config-sample.php
 	sed -i "s/username_here/$USER_NAME/g" ${PWD}/public_html/wp-config-sample.php
-	sed -i "s/password_here/$PASSWORD/g" ${PWD}/public_html/wp-config-sample.php 
+	sed -i "s/password_here/$PASSWORD/g" ${PWD}/public_html/wp-config-sample.php
 	mv public_html/wp-config-sample.php public_html/wp-config.php
 	chown -R ${USER_NAME}: /home/${USER_NAME}
 }
@@ -397,7 +397,7 @@ add_wordpress(){
 phpmyadmin_set(){
     SECRET=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
     sed -i "s/.*blowfish_secret.*/\$cfg[\'blowfish_secret\'] = \'${SECRET}\';/" /etc/phpMyAdmin/config.inc.php
-    if [[ $PHPVER == "54" ]]; then
+    if [[ $PHPVER == "54" ]] || [[ $PHPVER == "56" ]]; then
         sed -i "s/Require ip 127.0.0.1/Require all granted/g" /etc/httpd/conf.d/phpMyAdmin.conf
         sed -i "s/Require ip ::1/#Require ip ::1/g" /etc/httpd/conf.d/phpMyAdmin.conf
     else
@@ -486,7 +486,7 @@ var_get(){
     php_check
     if [[ $TYPE == "fresh" ]] && [[ -z $PHPVER ]]; then
         echo "Choose PHP version:"
-        select choices in "7.2" "7.1" "7.0" "5.4"; do
+        select choices in "7.2" "7.1" "7.0" "5.6" "5.4"; do
             case $choices in
                 "7.2" )
                     PHPVER="72"
@@ -498,6 +498,10 @@ var_get(){
                     ;;
                 "7.0" )
                     PHPVER="70"
+                    break
+                    ;;
+                "5.6" )
+                    PHPVER="56"
                     break
                     ;;
                 "5.4" )
@@ -576,7 +580,7 @@ fresh_pa(){
     phpmyadmin_set
     mycnf_set
     mysql_set_root
-    services_set	
+    services_set
     title "Completed."
 }
 
@@ -628,7 +632,7 @@ menu(){
     declare -A OPTS_FUNCS=(
     ["Fresh Installation (Apache)"]="fresh_pa"
     ["Fresh Installation (Apache+Nginx)"]="fresh_an"
-    ["Add Domain/User/Database"]="addition" 
+    ["Add Domain/User/Database"]="addition"
     ["Add Domain/User/Database (WordPress)"]="addition_wordpress"
     ["Switch to Apache+Nginx Reverse Proxy"]="to_nginx"
     ["Switch to Apache Only"]="to_apache"
