@@ -144,6 +144,7 @@ prepare(){
     echo "Installing required packages..."
     yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm
     yum install -y yum-utils
+    curl -sS https://downloads.mariadb.com/MariaDB/mariadb_repo_setup | sudo bash
     yum-config-manager --enable remi-php${PHPVER}
     if [[ $PHPVER != "54" ]] || [[ $PHPVER != "56" ]]; then
         yum-config-manager --enable remi
@@ -151,7 +152,7 @@ prepare(){
     #yum upgrade -y
     yum install -y epel-release
     yum install -y ntp git vim-enhanced rsync net-tools wget bind-utils net-tools lsof iptraf tcpdump apachetop
-    yum install -y httpd vsftpd mariadb-server php php-mcrypt php-cli php-gd php-curl php-mysql php-ldap php-zip php-fileinfo phpmyadmin
+    yum install -y httpd vsftpd php php-mcrypt php-cli php-gd php-curl php-mysql php-ldap php-zip php-fileinfo phpmyadmin MariaDB-server MariaDB-client
     ranger_set
     echo "Done."
 }
