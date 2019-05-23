@@ -682,37 +682,37 @@ menu(){
         fresh_pa )
             fresh_pa
             menu
-            break
+            return
             ;;
         fresh_an )
             fresh_an
             menu
-            break
+            return
             ;;
         addition )
             addition
             menu
-            break
+            return
             ;;
 		addition_wordpress )
             addition_wordpress
             menu
-            break
+            return
             ;;
         to_nginx )
             convert_to_nginx
             menu
-            break
+            return
             ;;
         to_apache )
             convert_to_apache
             menu
-            break
+            return
             ;;
         bye )
             title "Goodbye!"
             exit 0
-            break
+            return
             ;;
     esac
 }
