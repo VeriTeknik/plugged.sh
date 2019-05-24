@@ -85,40 +85,40 @@ title(){
 
     if [[ -z $3 ]] && [[ -z $2 ]]; then
         SIDE='|'
-    elif [[ -z $3 ]] && [[ ! -z $2 ]]; then
-        SIDE=$(echo $DASH)
+    elif [[ -z $3 ]] && [[ -n $2 ]]; then
+        SIDE=$DASH
     fi
 
     if [[ -z $4 ]] && [[ -z $2 ]]; then
         CORNER='+'
-    elif [[ -z $4 ]] && [[ ! -z $2 ]]; then
-        CORNER=$(echo $DASH)
+    elif [[ -z $4 ]] && [[ -n $2 ]]; then
+        CORNER=$DASH
     fi
 
     CHARS=${#NAME}
     CHARSC=$(( CHARS - 2 ))
     WIDTH=$(( CHARSC + OFFSET * 2 ))
 
-    printf $CORNER
+    printf "%s" $CORNER
     repeat $DASH $WIDTH
-    printf $CORNER
+    printf "%s" $CORNER
     printf '\n'
-    printf $SIDE
+    printf "%s" $SIDE
     repeat ' ' $(( OFFSET - 1 ))
-    printf "$NAME"
+    printf "%s" "$NAME"
     repeat ' ' $(( OFFSET - 1 ))
-    printf $SIDE
+    printf "%s" $SIDE
     printf '\n'
-    printf $CORNER
+    printf "%s" $CORNER
     repeat $DASH $WIDTH
-    printf $CORNER
+    printf "%s" $CORNER
     printf '\n'
     echo
     sleep 0.2
 }
 
 root_check(){
-    if [ $(id -u) != "0" ]; then
+    if [ "$(id -u)" != "0" ]; then
         echo "Error: You must be root to run this script, please use root to use this script."
         exit 1
     fi
@@ -144,14 +144,15 @@ prepare(){
     echo "Installing required packages..."
     yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm
     yum install -y yum-utils
-    yum-config-manager --enable remi-php${PHPVER}
+    curl -sS https://downloads.mariadb.com/MariaDB/mariadb_repo_setup | sudo bash
+    yum-config-manager --enable remi-php"${PHPVER}"
     if [[ $PHPVER != "54" ]] || [[ $PHPVER != "56" ]]; then
         yum-config-manager --enable remi
     fi
     #yum upgrade -y
     yum install -y epel-release
     yum install -y ntp git vim-enhanced rsync net-tools wget bind-utils net-tools lsof iptraf tcpdump apachetop
-    yum install -y httpd vsftpd mariadb-server php php-mcrypt php-cli php-gd php-curl php-mysql php-ldap php-zip php-fileinfo phpmyadmin
+    yum install -y httpd vsftpd php php-mcrypt php-cli php-gd php-curl php-mysql php-ldap php-zip php-fileinfo phpmyadmin MariaDB-server MariaDB-client
     ranger_set
     echo "Done."
 }
@@ -268,7 +269,7 @@ EOF
     if [[ $htstat == 0 ]]; then
         files=$(find /etc/httpd/conf.d/ -name 'z_*')
         for file in "${files[@]}"; do
-            sed -i "s/^<VirtualHost .*/<VirtualHost 127.0.0.1:8080>/g" $file
+            sed -i "s/^<VirtualHost .*/<VirtualHost 127.0.0.1:8080>/g" "$file"
         done
         nginx_make_config
     fi
@@ -294,8 +295,7 @@ nginx_make_config(){
 
     for file in "${files[@]}"; do
         if [[ ! -f "/etc/nginx/conf.d/${file}" ]]; then
-            touch /etc/nginx/conf.d/${file}
-            nginx_domain=$(grep 'ServerName' /etc/httpd/conf.d/${file} | awk '{print $2}')
+            touch /etc/nginx/conf.d/"${file}"
             cat > "/etc/nginx/conf.d/${file}" <<EOF
 server {
     listen       80;
@@ -382,14 +382,14 @@ EOF
 }
 
 add_wordpress(){
-	cd /home/${USER_NAME}
+	cd /home/${USER_NAME} || exit
 	wget https://wordpress.org/latest.tar.gz
 	tar -xzvf latest.tar.gz > /dev/null
 	mv wordpress/* /home/${USER_NAME}/public_html
 	rm -rf latest.tar.gz wordpress/
-	sed -i "s/database_name_here/$USER_NAME/g" ${PWD}/public_html/wp-config-sample.php
-	sed -i "s/username_here/$USER_NAME/g" ${PWD}/public_html/wp-config-sample.php
-	sed -i "s/password_here/$PASSWORD/g" ${PWD}/public_html/wp-config-sample.php
+	sed -i "s/database_name_here/$USER_NAME/g" "${PWD}"/public_html/wp-config-sample.php
+	sed -i "s/username_here/$USER_NAME/g" "${PWD}"/public_html/wp-config-sample.php
+	sed -i "s/password_here/$PASSWORD/g" "${PWD}"/public_html/wp-config-sample.php
 	mv public_html/wp-config-sample.php public_html/wp-config.php
 	chown -R ${USER_NAME}: /home/${USER_NAME}
 }
@@ -458,8 +458,8 @@ ssh_key_add(){
 
 services_set(){
     for service in "${SERVICES[@]}"; do
-        systemctl start $service
-        systemctl enable $service
+        systemctl start "$service"
+        systemctl enable "$service"
     done
     if ins_check nginx; then
         systemctl start nginx
@@ -468,7 +468,7 @@ services_set(){
 
 services_reset(){
     for service in "${SERVICES[@]}"; do
-        systemctl restart $service
+        systemctl restart "$service"
     done
     if ins_check nginx; then
         systemctl restart nginx
@@ -477,8 +477,8 @@ services_reset(){
 
 user_check(){
     USER=$1
-    grep $USER /etc/passwd > /dev/null
-    [ $? -eq 0 ] && return $TRUE || return $FALSE
+    grep "$USER" /etc/passwd > /dev/null
+    [ $? -eq 0 ] && return "$TRUE" || return "$FALSE"
 }
 
 var_get(){
@@ -510,40 +510,40 @@ var_get(){
                     ;;
             esac
         done
-        read -p "MySQL Root Password: " PASSWORD
+        read -r -p "MySQL Root Password: " PASSWORD
         if [[ -z $PASSWORD ]]; then
             echo "Set proper values."
-            var_get $TYPE
+            var_get "$TYPE"
         fi
 
     elif [[ $TYPE == "fresh" ]]; then
         phpver_pretty=$(php -v | grep cli | awk '{print $2}')
         echo "PHP version ${phpver_pretty} detected."
         sleep 0.2
-        read -p "MySQL Root Password: " PASSWORD
+        read -r -p "MySQL Root Password: " PASSWORD
         if [[ -z $PASSWORD ]]; then
             echo "Set proper values."
-            var_get $TYPE
+            var_get "$TYPE"
         fi
     elif [[ $TYPE == "addition" ]] && [[ -z $PHPVER ]]; then
         echo "No PHP detected. Run fresh installation first."
         menu
     elif [[ $TYPE == "addition" ]]; then
         sleep 0.2
-        read -p "Domain: " DOMAIN_NAME
-        read -p "Password: " PASSWORD
+        read -r -p "Domain: " DOMAIN_NAME
+        read -r -p "Password: " PASSWORD
         if [[ -z $DOMAIN_NAME ]] || [[ -z $PASSWORD ]]; then
             echo -e "Set proper values."
-            var_get $TYPE
+            var_get "$TYPE"
         fi
-        USER_NAME=$(echo $DOMAIN_NAME | awk -F'.' '{print $1}')
+        USER_NAME=$(echo "$DOMAIN_NAME" | awk -F'.' '{print $1}')
         if [[ $USER_NAME == "www" ]]; then
-            USER_NAME=$(echo $DOMAIN_NAME | awk -F'.' '{print $2}')
-            DOMAIN_NAME=$(echo $DOMAIN_NAME | cut -d'.' -f 2-)
+            USER_NAME=$(echo "$DOMAIN_NAME" | awk -F'.' '{print $2}')
+            DOMAIN_NAME=$(echo "$DOMAIN_NAME" | cut -d'.' -f 2-)
         fi
-        if  user_check $USER_NAME; then
+        if  user_check "$USER_NAME"; then
             echo "This user exists."
-            var_get $TYPE
+            var_get "$TYPE"
         fi
     fi
 }
@@ -554,7 +554,7 @@ convert_to_nginx(){
         mkdir /etc/plugged
     fi
     for folder in /etc/plugged/httpd_*; do
-        [ -e "$folder" ] && rm -rf $folder
+        [ -e "$folder" ] && rm -rf "$folder"
         break
     done
     rsync -avh --progress /etc/httpd /etc/plugged/httpd_pure
@@ -682,37 +682,37 @@ menu(){
         fresh_pa )
             fresh_pa
             menu
-            break
+            return
             ;;
         fresh_an )
             fresh_an
             menu
-            break
+            return
             ;;
         addition )
             addition
             menu
-            break
+            return
             ;;
 		addition_wordpress )
             addition_wordpress
             menu
-            break
+            return
             ;;
         to_nginx )
             convert_to_nginx
             menu
-            break
+            return
             ;;
         to_apache )
             convert_to_apache
             menu
-            break
+            return
             ;;
         bye )
             title "Goodbye!"
             exit 0
-            break
+            return
             ;;
     esac
 }
@@ -721,4 +721,4 @@ main(){
     menu
 }
 
-main | tee $LOGFILE
+main | tee "$LOGFILE"
